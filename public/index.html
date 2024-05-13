@@ -1,0 +1,50 @@
+<html>
+
+<head>
+    <title>Tuilage vectoriel - Mapbox Vector Tiles</title>
+    <meta charset="UTF-8">
+    <style>
+        ul {
+            list-style-type: disclosure-closed;
+        }
+        li {
+            margin-bottom: 2em;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Tuilage vectoriel - Mapbox Vector Tiles</h1>
+    <div class="container">
+    <ul>
+        <li>
+            <a href="/administratif">🏠 Administratif</a>
+            <p>
+                La carte est constituée d'une couche de fond Orthophotos de l'IGN et une couche MVT composée de trois types de données :
+                communes, parcelles cadastrales et bâtiments.
+                <br/>
+                Le tuilage vectoriel permet un affichage fluide des données (tuiles avec vecteurs simplifiés + possibilité de mettre en cache),
+                de bénéficier d'attributs (ici affichés dans des étiquettes au survol) et de contrôler le style d'affichage sans réaliser un nouvel appel serveur.
+                <br/>
+                Lorsque les tuiles sont en cache, il est donc possible de réaliser des analyses en mode hors ligne.
+                <br/><br/>
+                <b>Zoomer puis utiliser le bouton "Centrer sur Dijon" pour se positionner en Côte d'Or (pour les parcelles et les bâtiments).</b>
+            </p>
+        </li>
+        <li>
+            <a href="/geostats">🗺 Géo statistiques</a>
+            <p>
+                La carte est constituée d'une couche MVT composée de deux types de données : départements et communes.
+                <br/>
+                Le tuilage vectoriel couplé à un chargement annexe de données (commune → nombre à virgule) permet de réaliser des analyses thématiques controlées côté client.
+                <br/>
+                Ici, les données sont rattachées à l'échelon communal.
+                <br/><br/>
+                <b>Zoomer légèrement et modifier le nombre de classes, le thème ou la méthode.</b>
+            </p>
+        </li>
+    </ul>
+    </div>
+</body>
+
+</html>

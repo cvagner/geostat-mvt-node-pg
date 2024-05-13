@@ -1,0 +1,485 @@
+<html>
+
+<head>
+    <title>Mapbox Vector Tile - Afministratif</title>
+    <meta charset="UTF-8">
+    <script src="https://cdn.jsdelivr.net/npm/openlayers"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@7.3.0/ol.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.8.0/proj4.js"></script>
+
+    <style>
+        html,
+        body {
+            font-family: sans-serif;
+            width: 100%;
+            margin: 0 0 0 0;
+        }
+        
+        #map {
+            float: left;
+            width: 70%;
+        }
+        
+        #tools {
+            height: 100%;
+            margin-left: 71%;
+            padding-top: 10px;
+            padding-bottom: 0px;
+            padding-right: 5px;
+            padding-left: 5px;
+        }
+        
+        #tools legend {
+            font-weight: bold;
+        }
+        
+        #tools fieldset {
+            border-width: 0px;
+        }
+        
+        #tools label {
+            font: 10pt sans-serif;
+            width: 100px;
+            display: inline-block;
+        }
+        
+        #tools td {
+            width: 50%;
+        }
+        
+        a {
+            color: blue;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+        
+        #tooltip {
+            position: relative;
+            padding: 3px;
+            background: rgb(255, 255, 255);
+            color: black;
+            opacity: 1;
+            white-space: nowrap;
+            font: 10pt sans-serif;
+            border: 1px solid silver;
+        }
+        
+        #info {
+            text-align: left;
+        }
+        
+        #legend td {
+            width: 25px;
+            height: 25px;
+        }
+
+    </style>
+</head>
+<div id="map"></div>
+<div id="tools">
+    <fieldset>
+        <legend>Couche à styliser</legend>
+        <select id='currentLayer' onchange="javascript:currentLayer=this.options[this.selectedIndex].value;updateEditor()"></select>
+    </fieldset>
+    <fieldset>
+        <legend>Fond</legend>
+        <label for="fillColor">Couleur</label>
+        <input id="fillColor" type="color" onchange="updateStyle();updateLegend();" />
+        <br/>
+        <label for="fillOpacity">Opacité</label>
+        <input id="fillOpacity" type="range" min="0" step="0.05" max="1" onchange="updateStyle();updateLegend();" />
+    </fieldset>
+    <fieldset>
+        <legend>Contour</legend>
+        <label for="strokeColor">Couleur</label>
+        <input id="strokeColor" type="color" onchange="updateStyle();updateLegend();" />
+        <br/>
+        <label for="strokeOpacity">Opacité</label>
+        <input id="strokeOpacity" type="range" min="0" step="0.05" max="1" onchange="updateStyle();updateLegend();" />
+        <br/>
+        <label for="strokeWidth">Epaisseur</label>
+        <input id="strokeWidth" type="range" min="0.0000001" step="0.1" max="10" onchange="updateStyle();updateLegend();" />
+    </fieldset>
+    <fieldset>
+        <legend>Légende</legend>
+        <div id="legend"></div>
+    </fieldset>
+    <input type="checkbox" checked onchange="javascript:ign.setVisible(this.checked);">Afficher le fond de carte IGN</input>
+    <br/>
+    <br/>
+    <input type="button" onclick="javascript:map.getView().setCenter([562967.5147634904, 5993522.297505825]);" value="Centrer sur Dijon" />
+    <br/>
+    <br/>
+    <div id="info">&nbsp;</div>
+</div>
+
+<div id="tooltip"></div>
+
+<script>
+    const wktFormat = new ol.format.WKT();
+    const layers = ['commune', 'parcelle', 'bati'];
+
+    var strokeWidth = [];
+    var strokeColor = [];
+    var strokeOpacity = [];
+    var strokeColorAlpha = [];
+
+    var fillColor = [];
+    var fillOpacity = [];
+    var fillColorAlpha = [];
+
+    var layerVisibilities = [];
+
+    var currentLayer = layers[0];
+
+    var layerSelector = document.getElementById('currentLayer');
+    for (var i = 0; i < layers.length; i++) {
+        var opt = document.createElement('option');
+        opt.value = layers[i];
+        opt.innerHTML = layers[i];
+        if (layers[i] == currentLayer) {
+            opt.selected = true;
+        }
+        layerSelector.appendChild(opt);
+    }
+
+    function initStyle() {
+        var initCurrentLayer = currentLayer;
+        for (var i = 0; i < layers.length; i++) {
+
+            currentLayer = layers[i];
+            /*strokeWidth[currentLayer] = 1;
+            strokeColor[currentLayer] = '#000000';
+            strokeOpacity[currentLayer] = 1;
+            fillColor[currentLayer] = '#000000';
+            fillOpacity[currentLayer] = 0;*/
+            layerVisibilities[currentLayer] = true;
+            switch (currentLayer) {
+                case 'commune':
+                    strokeWidth[currentLayer] = 1;
+                    strokeColor[currentLayer] = '#2a16da';
+                    strokeOpacity[currentLayer] = 1;
+                    fillColor[currentLayer] = '#2a16da';
+                    fillOpacity[currentLayer] = 0;
+                    break;
+                case 'parcelle':
+                    strokeWidth[currentLayer] = 1;
+                    strokeColor[currentLayer] = '#da1657';
+                    strokeOpacity[currentLayer] = 0.8;
+                    fillColor[currentLayer] = '#da1657';
+                    fillOpacity[currentLayer] = 0.1;
+                    break;
+                case 'bati':
+                    strokeWidth[currentLayer] = 1;
+                    strokeColor[currentLayer] = '#ecdf2b';
+                    strokeOpacity[currentLayer] = 0;
+                    fillColor[currentLayer] = '#ecdf2b';
+                    fillOpacity[currentLayer] = 0.5;
+                    break;
+            }
+            updateEditor();
+            updateStyle();
+        }
+        currentLayer = initCurrentLayer;
+    }
+
+    function updateLegend() {
+
+        var initCurrentLayer = currentLayer;
+
+        html = '<table>';
+        for (var i = 0; i < layers.length; i++) {
+
+            var currentLayer = layers[i];
+
+            html += '<tr><td onclick="layerVisibilities[\'' + currentLayer + '\']=!layerVisibilities[\'' + currentLayer + '\'];administratif.setStyle(administratif.getStyle());" style="';
+            if (strokeWidth[currentLayer] > 0.0000001) {
+                html += 'border:' + strokeWidth[currentLayer] + 'px solid ' + getCssColor(strokeColorAlpha[currentLayer]) + ';';
+            }
+            html += 'background:' + getCssColor(fillColorAlpha[currentLayer]) + ';' + '"/><td>' + currentLayer + '</td></tr>';
+
+        }
+        html += '</table>';
+        document.getElementById("legend").innerHTML = html;
+
+        currentLayer = initCurrentLayer;
+
+    }
+
+    function getStyle(feature, resolution) {
+        var layerName = feature.get('layer');
+        if (layerVisibilities[layerName] == false) {
+            return undefined;
+        }
+        return new ol.style.Style({
+            fill: new ol.style.Fill({
+                color: fillColorAlpha[layerName]
+            }),
+            stroke: new ol.style.Stroke({
+                color: strokeColorAlpha[layerName],
+                width: strokeWidth[layerName]
+            })
+        });
+    }
+
+    var administratif = new ol.layer.VectorTile({
+        style: getStyle,
+        renderMode: 'image',
+        source: new ol.source.VectorTile({
+            tilePixelRatio: 16,
+            format: new ol.format.MVT({
+                layers: layers
+            }),
+            tileGrid: ol.tilegrid.createXYZ({
+                maxZoom: 22
+            }),
+            url: '/tiles/{z}/{x}/{y}.pbf?layers=bati,parcelle,commune'
+        })
+    });
+
+
+
+
+    // IGN
+    var resolutions = [];
+    var matrixIds = [];
+    var proj3857 = ol.proj.get('EPSG:3857');
+    var maxResolution = ol.extent.getWidth(proj3857.getExtent()) / 256;
+    var maxZoomLevel = 20;
+    for (var i = 0; i < maxZoomLevel; i++) {
+        matrixIds[i] = i.toString();
+        resolutions[i] = maxResolution / Math.pow(2, i);
+    }
+    /* var resolutions = [
+        156543.03392804103,
+        78271.5169640205,
+        39135.75848201024,
+        19567.879241005125,
+        9783.939620502562,
+        4891.969810251281,
+        2445.9849051256406,
+        1222.9924525628203,
+        611.4962262814101,
+        305.74811314070485,
+        152.87405657035254,
+        76.43702828517625,
+        38.218514142588134,
+        19.109257071294063,
+        9.554628535647034,
+        4.777314267823517,
+        2.3886571339117584,
+        1.1943285669558792,
+        0.5971642834779396,
+        0.29858214173896974,
+        0.14929107086948493,
+        0.07464553543474241
+    ];
+    var matrixIds = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "20"];*/
+
+    var tileGrid = new ol.tilegrid.WMTS({
+        origin: [-20037508, 20037508],
+        resolutions: resolutions,
+        matrixIds: matrixIds
+    });
+
+    var ign_source = new ol.source.WMTS({
+        url: 'https:/data.geopf.fr/wmts',
+        //layer: 'GEOGRAPHICALGRIDSYSTEMS.PLANIGN',
+        layer: 'ORTHOIMAGERY.ORTHOPHOTOS',
+        matrixSet: 'PM',
+        format: 'image/jpeg',
+        projection: 'EPSG:3857',
+        tileGrid: tileGrid,
+        style: 'normal',
+        attributions: [new ol.control.Attribution({
+            html: '<a href="http://www.geoportail.fr/" target="_blank">' +
+                '<img src="https://api.ign.fr/geoportail/api/js/latest/' +
+                'theme/geoportal/img/logo_gp.gif"></a>'
+        })]
+    });
+
+
+    var ign = new ol.layer.Tile({
+        source: ign_source
+    });
+
+
+    var drawingSource = new ol.source.Vector();
+    var drawingVector = new ol.layer.Vector({
+        style: new ol.style.Style({
+            fill: new ol.style.Fill({
+                color: 'rgb(255,0,0)'
+            })
+        }),
+        source: drawingSource
+    });
+
+
+
+    var map = new ol.Map({
+        controls: [],
+        target: 'map',
+        //layers: [ign,comMVT,parcelleEtiquetteMVT],
+        layers: [ign, administratif],
+        view: new ol.View({
+            projection: 'EPSG:3857',
+            minZoom: 0,
+            maxZoom: maxZoomLevel
+        })
+    });
+
+    var initBounds = [-580254.125, 5058140.5, 1072376.125, 6644978];
+    map.getView().fit(initBounds, map.getSize());
+    initStyle();
+    updateLegend();
+
+
+
+    //Outils
+    var navigation = new ol.interaction.DragZoom();
+    navigation.setActive(true);
+    map.addInteraction(navigation);
+
+    //Zoom + et -
+    var ctrlZoom = new ol.control.Zoom({
+        "zoomInTipLabel": "Zoomer en avant",
+        "zoomOutTipLabel": "Zoomer en arrière",
+    });
+    map.addControl(ctrlZoom);
+
+    //Zoom étendu
+    var ctrlZoomFullExtent = new ol.control.ZoomToExtent({
+        'extent': initBounds,
+        "tipLabel": "Zoomer sur toute la carte",
+        "label": "T"
+    });
+    map.addControl(ctrlZoomFullExtent);
+
+
+    var ctrlPosition = new ol.control.MousePosition({
+        projection: 'EPSG:4326',
+        //"className": "ctrlPosition",
+        "coordinateFormat": function(coord1) {
+            return ol.coordinate.format(coord1, "x : {x}, y : {y}", 6);
+        }
+    });
+    map.addControl(ctrlPosition);
+
+    //Tootip
+    var tooltip = document.getElementById('tooltip');
+    var overlay = new ol.Overlay({
+        element: tooltip,
+        offset: [10, 0],
+        positioning: 'bottom-left'
+    });
+    map.addOverlay(overlay);
+
+    function displayTooltip(evt) {
+
+        if (map.getView().getZoom()) {
+            var pixel = evt.pixel;
+            var feature = map.forEachFeatureAtPixel(pixel, function(feature) {
+
+                if (feature.get('layer') == currentLayer) {
+                    return feature;
+                }
+
+            });
+
+            tooltip.style.display = feature ? '' : 'none';
+
+            if (feature) {
+
+                var properties = feature.getProperties();
+                tooltip.innerHTML = '';
+                for (var property in properties) {
+                    if (properties.hasOwnProperty(property) && property != 'layer') {
+                        tooltip.innerHTML += property + ' : ' + feature.get(property) + '<br/>';
+                    }
+                }
+                overlay.setPosition(evt.coordinate);
+
+            }
+
+
+        } else {
+            tooltip.style.display = 'none';
+        }
+    };
+
+    map.on('pointermove', displayTooltip);
+
+    map.on('click', function(e) {
+        var pixel = map.getEventPixel(e.originalEvent);
+        map.forEachFeatureAtPixel(pixel, function(feature) {
+
+            if (feature.get('layer') == currentLayer) {
+
+                //console.log(new ol.format.WKT().writeGeometry(feature.get('geometry')));
+
+            }
+
+        });
+    });
+
+
+
+    map.getView().on('change:resolution', function(e) {
+        document.getElementById("info").innerHTML = "Zoom : " + map.getView().getZoom();
+    });
+
+    /*var exportPNGElement = document.getElementById('exportPNG');
+    if ('download' in exportPNGElement) {
+    	exportPNGElement.addEventListener('click', function(e) {
+    		map.once('postcompose', function(event) {
+    		  var canvas = event.context.canvas;
+    		  exportPNGElement.href = canvas.toDataURL('image/png');
+    		});
+    	map.renderSync();
+      }, false);
+    }*/
+
+    function convertHex(hex) {
+        hex = hex.replace('#', '');
+        r = parseInt(hex.substring(0, 2), 16);
+        g = parseInt(hex.substring(2, 4), 16);
+        b = parseInt(hex.substring(4, 6), 16);
+        return [r, g, b];
+    }
+
+    function getCssColor(color) {
+        return 'rgba(' + color[0] + ',' + color[1] + ',' + color[2] + ',' + color[3] + ')';
+    }
+
+    function updateEditor() {
+        document.getElementById("strokeWidth").value = strokeWidth[currentLayer];
+        document.getElementById("strokeColor").value = strokeColor[currentLayer];
+        document.getElementById("strokeOpacity").value = strokeOpacity[currentLayer];
+        document.getElementById("fillColor").value = fillColor[currentLayer];
+        document.getElementById("fillOpacity").value = fillOpacity[currentLayer];
+    }
+
+    function updateStyle() {
+
+        //Stroke
+        strokeWidth[currentLayer] = document.getElementById("strokeWidth").value;
+        strokeColor[currentLayer] = document.getElementById("strokeColor").value;
+        strokeOpacity[currentLayer] = document.getElementById("strokeOpacity").value;
+        var strokeRGB = convertHex(strokeColor[currentLayer]);
+        strokeColorAlpha[currentLayer] = [strokeRGB[0], strokeRGB[1], strokeRGB[2], parseFloat(strokeOpacity[currentLayer])];
+
+        //Fill
+        fillColor[currentLayer] = document.getElementById("fillColor").value;
+        fillOpacity[currentLayer] = document.getElementById("fillOpacity").value;
+        var fillRGB = convertHex(fillColor[currentLayer]);
+        fillColorAlpha[currentLayer] = [fillRGB[0], fillRGB[1], fillRGB[2], parseFloat(fillOpacity[currentLayer])];
+
+        //administratif.getSource().refresh();
+        administratif.setStyle(administratif.getStyle());
+    }
+
+</script>
+
+</body>
+
+</html>

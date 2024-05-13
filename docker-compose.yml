@@ -1,0 +1,37 @@
+name: mvt
+
+services:
+  db:
+    container_name: mvt-db
+    image: postgis/postgis:16-3.4
+    environment:
+      PGDATA: /var/lib/postgresql/data
+      POSTGRES_USER: mvt
+      POSTGRES_PASSWORD: mvt
+      POSTGRES_DB: mvt
+      TZ: "Europe/Paris"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./sql-data/bbox.sql:/docker-entrypoint-initdb.d/init1.sql:ro
+      #
+      - ./sql-data:/sql-data:ro
+      #
+      # - ./sql-data/demo_mvt_cadastre.sql:/docker-entrypoint-initdb.d/init1.sql:ro
+      # - ./sql-data/demo_mvt_geofla.sql:/docker-entrypoint-initdb.d/init2.sql:ro
+      # - ./sql-data/set-dep-geom.sql:/docker-entrypoint-initdb.d/init3.sql:ro
+      # - ./sql-data/bbox.sql:/docker-entrypoint-initdb.d/init4.sql:ro
+    ports:
+      - "5432:5432"
+    logging:
+      options:
+        max-size: "10k"
+        max-file: "20"
+    networks:
+      - mvt
+
+volumes:
+  db-data:
+
+networks:
+  mvt:
+    name: 'mvt'

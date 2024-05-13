@@ -1,0 +1,96 @@
+html, body {
+    margin: 0 0 0 0;
+}
+
+h1 {
+    font: 16pt sans-serif;
+    font-weight: bold;
+}
+
+h2 {
+    font: 14pt sans-serif;
+}
+
+h3 {
+    font: 12pt sans-serif;
+}
+
+label {
+    font: 10pt sans-serif;
+}
+
+#header {
+    height: 80px;
+    margin: 5px 5px 5px 5px;
+}
+
+#map {
+    float: left;
+    margin: 0;
+    width: calc(100% - 300px);
+    height: calc(100% - 110px);
+}
+
+#tools {
+    float: right;
+    margin: 0;
+    width: 300px;
+    height: 70%;
+}
+
+#classification {
+    margin: 10px;
+}
+
+#theme {
+    margin: 10px;
+}
+
+#colorRamps {
+    height: 250px;
+    overflow: auto;
+}
+
+#colorRamp {
+    margin: 5px;
+}
+
+.theme {
+    display: inline-block;
+    width: 15px;
+    height: 15px;
+    margin-bottom: 0px;
+    border: 0px solid silver;
+}
+
+.geostats-legend-title {
+    font: 12pt sans-serif;
+}
+
+.geostats-legend-block {
+    font: 10pt sans-serif;
+}
+
+.geostats-legend div {
+  margin:3px 10px 5px 10px
+}
+
+.geostats-legend-title {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.geostats-legend-block {
+  border: 1px solid #555555;
+  display: block;
+  float: left;
+  height: 12px;
+  margin: 0 5px 0 20px;
+  width: 20px;
+}
+
+.geostats-legend-counter { 
+  font-size: 0.8em;
+  color:#666;
+  font-style: italic;
+}

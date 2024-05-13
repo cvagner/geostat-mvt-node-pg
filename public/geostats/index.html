@@ -1,0 +1,213 @@
+<html>
+
+<head>
+    <title>Mapbox Vector Tile - Géo statistiques</title>
+    <meta charset="UTF-8">
+	<script src="https://cdn.jsdelivr.net/npm/openlayers"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@7.3.0/ol.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
+    <link rel="stylesheet" href="geostats.css">
+    <script src="data.js"></script>
+    <script src="colorbrewer.js"></script>
+    <script src="geostats.min.js"></script>
+</head>
+
+<body>
+    <div id="header">
+        <h1>Tuilage vectoriel et analyse thématique "coté client"</h1>
+		<h2>Cartographie à l'échelon communal</h2>
+	</div>
+		<div id="map">
+		</div>
+		<div id="tools">
+			<div id="classification">
+				<h3>Classification</h3>
+				<table>
+				<tr>
+					<td><label for="classMethod">Méthode :</label></td>
+					<td><select style="min-width: 118px;" id="classMethod" onChange="javascript:updateMethod(this.options[this.selectedIndex].value)">'
+						<option value="Quantil" selected>Effectifs égaux</option>
+						<option value="EqInterval">Intervales égaux</option>
+						<!--option value="StdDeviation">Déviation standard</option>
+						<option value="ArithmeticProgression">Progression arithémtique</option-->
+					</select></td>
+				</tr>
+				<tr>
+					<td><label for="classCount">Nombre de classes :</label></td>
+					<td><input style="min-width: 118px;" id="classCount"  min="3" max="8" value="3" type="number" onkeydown="return false" onChange="javascript:buildTheme(this.value);"/></td>
+				</tr>
+				</table>
+			</div>
+			<div id="legend">
+				<div id="htmlLegend"/>
+			</div>
+			<div id="theme">
+				<h3>Thème</h3>
+				<div id="colorRamps"/>
+			</div>
+			
+
+			
+		</div>
+
+	<!--div id="legend"></div-->
+	<script>
+		
+		const minStrokeWidth = 1;
+		const maxStrokeWidth = 5;
+		
+		const methodDefault = "Quantil";
+		const classCountDefault = 3;
+		const colorRampKeyDefault = Object.keys(colorbrewer)[0];
+		
+		var currentMethod = methodDefault;
+		var currentClassCount = classCountDefault;
+		var currentColorRampKey = colorRampKeyDefault;
+		
+		var strokeWidth = minStrokeWidth;
+		var fillColor = "blue";
+		var strokeColor = "#CCCCCC";
+		var serie;
+
+		
+		function buildTheme(classCount){
+			
+			currentClassCount = classCount;
+
+			var colorRampsHtml = "";
+			for (var key in colorbrewer) {
+				colorRampsHtml +='<div id="colorRamp">';
+				if (colorbrewer.hasOwnProperty(key)) {
+					if(key==currentColorRampKey){
+						colorRampsHtml+= '<input name="theme" class="theme" type="radio" value="'+ key +'" onclick=updateColorRamp(\'' + key + '\');" checked/>';
+					}else{
+						colorRampsHtml+= '<input name="theme" class="theme" type="radio" value="'+ key +'" onclick="updateColorRamp(\'' + key + '\');"/>';
+					}
+					for(i=0;i<classCount;i++){
+						colorRampsHtml+= '<div class="theme" style="background-color:'+ colorbrewer[key][currentClassCount][i]+'">&nbsp;</div>';
+					}
+				}
+				colorRampsHtml +="</div>";
+
+			}
+			document.getElementById("colorRamps").innerHTML = colorRampsHtml;
+			updateClassification();
+		}
+
+		function updateColorRamp(colorRampKey){
+			currentColorRampKey = colorRampKey;
+			updateClassification();
+		}
+		
+		function updateMethod(method){
+			currentMethod = method;
+			updateClassification();
+		}
+		
+
+		function updateClassification(){
+
+			serie = new geostats(Object.keys(communeData).map(function(v) { return communeData[v]; }))
+			serie.setPrecision(2);
+
+			if(currentMethod =='Quantil'){
+				serie.getClassQuantile(currentClassCount);
+			}else if(currentMethod =='EqInterval') {
+				serie.getClassEqInterval(currentClassCount,0,50000);
+				
+			}else if(currentMethod =='StdDeviation') {
+				serie.getClassStdDeviation(currentClassCount);
+			
+			}else if(currentMethod =='ArithmeticProgression') {
+				serie.getClassArithmeticProgression(currentClassCount);
+			}
+			
+			serie.setColors = colorbrewer[currentColorRampKey][currentClassCount];
+			//comMVT.getSource().refresh();
+			comMVT.setStyle(comMVT.getStyle());
+			document.getElementById("htmlLegend").innerHTML = serie.getHtmlLegend(colorbrewer[currentColorRampKey][currentClassCount], "<h3>Légende</h3>", false, null, 'distinct');
+		}
+		
+		function getStyle(feature,resolution){
+			
+			var style;
+			
+			
+			if(feature.get('layer') == 'departement'){
+			
+				style = new ol.style.Style({
+					stroke: new ol.style.Stroke({
+						color: "black",
+						width:2
+					})
+				});
+			
+			} else if(feature.get('layer') == 'commune'){
+				var densite = communeData[feature.get("numero")];
+				var color = colorbrewer[currentColorRampKey][currentClassCount][serie.getClass(densite)];
+				style = new ol.style.Style({
+					fill: new ol.style.Fill({color:color}),
+					stroke: new ol.style.Stroke({
+						color: strokeColor,
+						width:strokeWidth
+					})
+				});
+			}
+
+			return style;
+		}
+
+		var bounds = [-580254.125, 5058140.5, 1072376.125, 6644978];
+
+
+		var comMVT = new ol.layer.VectorTile({
+			style:getStyle,
+			renderMode: 'image',
+			preload:1,
+			source:  new ol.source.VectorTile({
+				tilePixelRatio: 1,
+				tileGrid: ol.tilegrid.createXYZ({maxZoom: 20}),
+				format: new ol.format.MVT(),
+				overlaps:true,
+				url: '/tiles/{z}/{x}/{y}.pbf?layers=departement,commune'
+			})
+		});
+
+		var map = new ol.Map({
+			controls: [],
+			target: 'map',
+			layers: [comMVT],
+			view: new ol.View({
+				projection: 'EPSG:3857',
+				minZoom: 0,
+				maxZoom: 12
+			})
+		});
+
+		map.getView().fit(bounds, map.getSize());
+
+		//Outils
+		var navigation = new ol.interaction.DragZoom();
+		navigation.setActive(true);
+		map.addInteraction(navigation);
+		
+		//Zoom + et -
+		var ctrlZoom = new ol.control.Zoom({
+			"zoomInTipLabel":"Zoomer en avant",
+			"zoomOutTipLabel":"Zoomer en arrière",
+		});
+		map.addControl(ctrlZoom);
+		
+		//Zoom étendu
+		var ctrlZoomFullExtent = new ol.control.ZoomToExtent({
+			'extent':bounds,
+			"tipLabel":"Zoomer sur toute la carte",
+			"label":"T"
+		});
+		map.addControl(ctrlZoomFullExtent);
+		
+		buildTheme(currentClassCount);
+
+  </script>
+</body>
+</html>
